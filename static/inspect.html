@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>waves — stream inspector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: #050505;
+      color: #e5e5e5;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header .room-name {
+      color: #525252;
+      font-size: 0.9rem;
+    }
+    .header .status {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: #525252;
+    }
+    .header .status.connected { color: #22c55e; }
+
+    .streams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 12px;
+    }
+    .stream-card {
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.3s;
+    }
+    .stream-card.active {
+      border-color: #1a1a1a;
+      animation: pulse-border 1s ease-in-out;
+    }
+    @keyframes pulse-border {
+      50% { border-color: #06b6d4; }
+    }
+    .stream-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: #06b6d4;
+      margin-bottom: 16px;
+      word-break: break-all;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .metric-label {
+      font-size: 0.65rem;
+      color: #525252;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #e5e5e5;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-value.highlight {
+      color: #06b6d4;
+    }
+    .throughput-bar {
+      grid-column: 1 / -1;
+      margin-top: 8px;
+    }
+    .bar-track {
+      height: 4px;
+      background: #1a1a1a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+      border-radius: 2px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .bar-label {
+      font-size: 0.65rem;
+      color: #525252;
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .empty {
+      text-align: center;
+      color: #333;
+      padding: 48px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>stream inspector</h1>
+    <span class="room-name" id="room-name"></span>
+    <span class="status" id="status">connecting...</span>
+  </div>
+  <div class="streams-grid" id="streams-grid">
+    <div class="empty">Waiting for stream data...</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const room = params.get('room');
+    if (!room) {
+      document.getElementById('streams-grid').innerHTML = '<div class="empty">Add ?room=ROOM_NAME to the URL</div>';
+    } else {
+      document.getElementById('room-name').textContent = room;
+      connectInspector(room);
+    }
+
+    function connectInspector(room) {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${proto}//${location.host}/ws/inspect?room=${encodeURIComponent(room)}`);
+
+      ws.onopen = () => {
+        const el = document.getElementById('status');
+        el.textContent = 'live';
+        el.classList.add('connected');
+      };
+
+      ws.onclose = () => {
+        const el = document.getElementById('status');
+        el.textContent = 'disconnected';
+        el.classList.remove('connected');
+      };
+
+      ws.onmessage = (event) => {
+        const snapshot = JSON.parse(event.data);
+        renderSnapshot(snapshot);
+      };
+    }
+
+    function renderSnapshot(snapshot) {
+      const grid = document.getElementById('streams-grid');
+
+      // Create/update cards.
+      for (const stream of snapshot.streams) {
+        let card = document.getElementById('card-' + css(stream.name));
+        if (!card) {
+          card = document.createElement('div');
+          card.className = 'stream-card';
+          card.id = 'card-' + css(stream.name);
+          card.innerHTML = `
+            <div class="stream-name">${stream.name}</div>
+            <div class="metrics">
+              <div class="metric">
+                <span class="metric-label">Seq Num</span>
+                <span class="metric-value highlight" data-field="seq"></span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Records</span>
+                <span class="metric-value" data-field="records"></span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Records/sec</span>
+                <span class="metric-value" data-field="rps"></span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Last Record</span>
+                <span class="metric-value" data-field="lastsize"></span>
+              </div>
+              <div class="throughput-bar">
+                <div class="bar-track"><div class="bar-fill" data-field="bar"></div></div>
+                <div class="bar-label" data-field="bps"></div>
+              </div>
+            </div>`;
+          // Remove "waiting" message.
+          const empty = grid.querySelector('.empty');
+          if (empty) empty.remove();
+          grid.appendChild(card);
+        }
+
+        // Update values.
+        card.querySelector('[data-field="seq"]').textContent = stream.seq_num.toLocaleString();
+        card.querySelector('[data-field="records"]').textContent = stream.records.toLocaleString();
+        card.querySelector('[data-field="rps"]').textContent = stream.records_per_sec.toFixed(1);
+        card.querySelector('[data-field="lastsize"]').textContent = formatBytes(stream.last_record_size);
+        card.querySelector('[data-field="bps"]').textContent = formatBytes(stream.bytes_per_sec) + '/s';
+
+        // Bar: scale to 1MB/s max.
+        const pct = Math.min(100, (stream.bytes_per_sec / (1024 * 1024)) * 100);
+        card.querySelector('[data-field="bar"]').style.width = pct + '%';
+
+        // Pulse animation on activity.
+        if (stream.records_per_sec > 0) {
+          card.classList.remove('active');
+          void card.offsetWidth; // Reflow to restart animation.
+          card.classList.add('active');
+        }
+      }
+    }
+
+    function css(name) { return name.replace(/[^a-zA-Z0-9]/g, '-'); }
+
+    function formatBytes(b) {
+      if (b === 0) return '0 B';
+      if (b < 1024) return b.toFixed(0) + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+  </script>
+</body>
+</html>

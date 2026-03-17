@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>waves</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Landing page -->
+  <div id="landing">
+    <div class="landing-noise"></div>
+    <div class="landing-glow glow-1"></div>
+    <div class="landing-glow glow-2"></div>
+
+    <div class="landing-layout">
+      <!-- Left: branding -->
+      <div class="landing-left">
+        <div class="logo">
+          <div class="logo-mark">
+            <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="6" width="16" height="16" rx="4" fill="url(#g1)"/>
+              <path d="M22 9.5L26 7v14l-4-2.5V9.5z" fill="url(#g2)"/>
+              <rect x="6" y="10" width="4" height="4" rx="1" fill="rgba(255,255,255,0.9)"/>
+              <defs>
+                <linearGradient id="g1" x1="2" y1="6" x2="18" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#06b6d4"/><stop offset="1" stop-color="#8b5cf6"/>
+                </linearGradient>
+                <linearGradient id="g2" x1="22" y1="7" x2="26" y2="21" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#06b6d4"/><stop offset="1" stop-color="#8b5cf6"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span>waves</span>
+        </div>
+        <h2 class="landing-heading">Video calls,<br>streamed through durable streams</h2>
+        <p class="landing-sub">Powered by <a href="https://s2.dev" target="_blank">S2</a>.</p>
+      </div>
+
+      <!-- Right: actions -->
+      <div class="landing-right">
+        <div class="landing-card">
+          <div class="input-wrap">
+            <label for="user-input">Your name</label>
+            <input type="text" id="user-input" placeholder="Enter your name" autocomplete="off" spellcheck="false">
+          </div>
+
+          <button id="create-btn" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            <span>New meeting</span>
+          </button>
+
+          <!-- Share link (shown after create) -->
+          <div id="share-modal" class="hidden">
+            <div class="share-label">Meeting ready. Share this link:</div>
+            <div class="share-link-row">
+              <input type="text" id="share-link" readonly>
+              <button id="copy-link-btn" onclick="copyShareLink()">Copy</button>
+            </div>
+            <button id="join-created-btn" class="btn-primary">
+              <span>Join now</span>
+            </button>
+          </div>
+
+          <div class="divider"><span>or</span></div>
+
+          <div class="join-section">
+            <label>Join with a code</label>
+            <div class="join-row">
+              <input type="text" id="room-input" placeholder="abc-def-ghi" autocomplete="off" spellcheck="false">
+              <button id="join-btn" class="btn-secondary">Join</button>
+            </div>
+          </div>
+
+          <div class="divider"><span>or</span></div>
+
+          <div class="join-section">
+            <label>Watch a recording</label>
+            <div class="join-row">
+              <input type="text" id="replay-room-input" placeholder="room code" autocomplete="off" spellcheck="false">
+              <button id="replay-btn" class="btn-secondary">Replay</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room page -->
+  <div id="room-page" class="hidden">
+    <div id="room-header">
+      <div class="header-left">
+        <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+        <h2 id="room-title"></h2>
+      </div>
+      <div id="room-status"></div>
+      <button id="leave-btn" class="header-btn">Leave</button>
+    </div>
+    <div id="video-grid">
+      <div class="video-tile" id="local-tile">
+        <video id="local-video" autoplay muted playsinline></video>
+        <canvas id="local-canvas" class="hidden"></canvas>
+        <div class="video-label">You</div>
+      </div>
+    </div>
+    <!-- Metrics overlay -->
+    <div id="metrics-panel">
+      <div class="metrics-title">S2 Stream Stats</div>
+      <div class="metrics-grid">
+        <div class="metrics-item">
+          <span class="metrics-label">Video Records</span>
+          <span class="metrics-val" id="stat-video-records">0</span>
+        </div>
+        <div class="metrics-item">
+          <span class="metrics-label">Audio Records</span>
+          <span class="metrics-val" id="stat-audio-records">0</span>
+        </div>
+        <div class="metrics-item">
+          <span class="metrics-label">Total Records</span>
+          <span class="metrics-val" id="stat-total-records">0</span>
+        </div>
+        <div class="metrics-item">
+          <span class="metrics-label">Total Sent</span>
+          <span class="metrics-val" id="stat-total-bytes">0 B</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat panel -->
+    <div id="chat-panel" class="collapsed">
+      <div id="chat-messages"></div>
+      <div id="chat-input-bar">
+        <input type="text" id="chat-input" placeholder="Message..." autocomplete="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="controls-bar">
+      <button id="toggle-mic" class="control-btn" title="Toggle microphone">
+        <svg class="icon-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <svg class="icon-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+          <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.5-.36 2.18"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <button id="toggle-camera" class="control-btn" title="Toggle camera">
+        <svg class="icon-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+        </svg>
+        <svg class="icon-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+      <button id="toggle-screen" class="control-btn" title="Share screen" onclick="toggleScreenShare()">
+        <svg class="icon-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <svg class="icon-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+      <button id="toggle-metrics" class="control-btn" title="Stream stats" onclick="toggleMetrics()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+      </button>
+      <button id="toggle-chat" class="control-btn" title="Chat" onclick="toggleChat()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <button id="toggle-hand" class="control-btn" title="Raise hand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8.5V5a1 1 0 0 0-2 0v6"/>
+          <path d="M14 5.5V3a1 1 0 0 0-2 0v8"/>
+          <path d="M10 5.5V4a1 1 0 0 0-2 0v9"/>
+          <path d="M6 8a1 1 0 0 0-2 0v5a8 8 0 0 0 16 0v-1.5a1 1 0 0 0-2 0"/>
+        </svg>
+      </button>
+      <button id="leave-btn-bottom" class="control-btn control-leave" title="Leave room" onclick="document.getElementById('leave-btn').click()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Replay page -->
+  <div id="replay-page" class="hidden">
+    <div id="replay-header">
+      <div class="header-left">
+        <div class="replay-badge">REPLAY</div>
+        <h2 id="replay-title"></h2>
+      </div>
+      <div id="replay-status"></div>
+      <button id="export-btn" class="header-btn" onclick="exportRecording()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>Export MP4
+      </button>
+      <button id="replay-leave-btn" class="header-btn">Back</button>
+    </div>
+    <div id="replay-grid"></div>
+    <div id="replay-controls">
+      <div id="timeline-bar">
+        <div id="timeline-track">
+          <div id="timeline-progress"></div>
+          <div id="timeline-thumb"></div>
+        </div>
+      </div>
+      <div id="replay-controls-row">
+        <button id="replay-play-btn" class="speed-btn">Pause</button>
+        <span id="replay-time">00:00</span>
+        <div id="speed-controls">
+          <button class="speed-btn" data-speed="0.5">0.5x</button>
+          <button class="speed-btn active" data-speed="1">1x</button>
+          <button class="speed-btn" data-speed="2">2x</button>
+          <button class="speed-btn" data-speed="4">4x</button>
+        </div>
+        <div id="focus-controls"></div>
+        <span id="replay-duration">00:00</span>
+        <button id="go-live-btn">GO LIVE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/audio-worklet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
