@@ -24,3 +24,7 @@ Then open `http://localhost:8080`.
 fly deploy
 fly secrets set S2_ACCESS_TOKEN=<your token> S2_BASIN=<your basin>
 ```
+
+## Acknowledgements
+
+Inspired by [PgVideoChat](https://github.com/nickvanw/PgVideoChat) and [SpaceChatDB](https://github.com/Lethalchip/SpaceChatDB).
