@@ -11,7 +11,7 @@ A video conferencing demo app built on [S2](https://s2.dev) streams.
 ## Running locally
 
 ```sh
-export S2_AUTH_TOKEN=<your token>
+export S2_ACCESS_TOKEN=<your token>
 export S2_BASIN=<your basin>
 go run .
 ```
@@ -22,5 +22,5 @@ Then open `http://localhost:8080`.
 
 ```sh
 fly deploy
-fly secrets set S2_AUTH_TOKEN=<your token> S2_BASIN=<your basin>
+fly secrets set S2_ACCESS_TOKEN=<your token> S2_BASIN=<your basin>
 ```

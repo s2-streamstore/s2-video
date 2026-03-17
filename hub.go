@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"sync"
@@ -18,7 +19,29 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  64 * 1024,
 	WriteBufferSize: 64 * 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		return u.Host == r.Host
+	},
+}
+
+func validID(s string) bool {
+	if len(s) == 0 || len(s) > 64 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 type Hub struct {
@@ -112,8 +135,8 @@ func (h *Hub) scheduleRoomCleanup(roomID string) {
 func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	roomID := r.URL.Query().Get("room")
 	userID := r.URL.Query().Get("user")
-	if roomID == "" || userID == "" {
-		http.Error(w, "room and user query params required", http.StatusBadRequest)
+	if !validID(roomID) || !validID(userID) {
+		http.Error(w, "invalid room or user", http.StatusBadRequest)
 		return
 	}
 
@@ -153,6 +176,13 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	h.handleLive(conn, room, userID)
 }
 
+const (
+	wsReadLimit    = 4 * 1024 * 1024 // 4 MB max frame
+	wsReadTimeout  = 30 * time.Second
+	maxMsgPerSec   = 150
+	maxChatBytes   = 10 * 1024 // 10 KB
+)
+
 func (h *Hub) handleLive(conn *websocket.Conn, room *Room, userID string) {
 	participant := room.Join(userID, conn)
 	if participant == nil {
@@ -167,7 +197,13 @@ func (h *Hub) handleLive(conn *websocket.Conn, room *Room, userID string) {
 		conn.Close()
 	}()
 
+	conn.SetReadLimit(wsReadLimit)
+
+	var rateCount int
+	rateWindowStart := time.Now()
+
 	for {
+		conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
@@ -180,6 +216,18 @@ func (h *Hub) handleLive(conn *websocket.Conn, room *Room, userID string) {
 			continue
 		}
 
+		now := time.Now()
+		if now.Sub(rateWindowStart) >= time.Second {
+			rateCount = 0
+			rateWindowStart = now
+		}
+		rateCount++
+		if rateCount > maxMsgPerSec {
+			h.logger.Warn("rate limit exceeded, closing connection", "user", userID)
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "rate limit exceeded"))
+			return
+		}
+
 		typ, payload, err := DecodeClientMessage(data)
 		if err != nil {
 			h.logger.Error("decode error", "user", userID, "error", err)
@@ -190,10 +238,11 @@ func (h *Hub) handleLive(conn *websocket.Conn, room *Room, userID string) {
 		case MsgTypeVideo, MsgTypeAudio, MsgTypeScreen:
 			participant.AppendMedia(typ, payload)
 		case MsgTypeControl:
-			// Append control events to the meta stream via S2.
 			room.AppendControl(userID, payload)
 		case MsgTypeChat:
-			// Append chat message to the chat stream via S2.
+			if len(payload) > maxChatBytes {
+				continue
+			}
 			room.AppendChat(userID, payload)
 		}
 	}

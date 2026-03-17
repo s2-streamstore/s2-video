@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	participantSendBuffer = 256
-	reliableSendTimeout   = 1 * time.Second
-	participantWriteLimit = 5 * time.Second
+	participantSendBuffer  = 256
+	reliableSendTimeout    = 1 * time.Second
+	participantWriteLimit  = 5 * time.Second
+	maxParticipantsPerRoom = 50
 )
 
 type Room struct {
@@ -63,6 +64,12 @@ func (r *Room) Join(userID string, conn *websocket.Conn) *Participant {
 	if _, exists := r.participants[userID]; exists {
 		r.participantsMu.Unlock()
 		r.logger.Warn("user already in room", "user", userID, "room", r.id)
+		return nil
+	}
+
+	if len(r.participants) >= maxParticipantsPerRoom {
+		r.participantsMu.Unlock()
+		r.logger.Warn("room full", "room", r.id)
 		return nil
 	}
 

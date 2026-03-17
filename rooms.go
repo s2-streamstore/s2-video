@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -28,12 +27,10 @@ func NewRoomRegistry() *RoomRegistry {
 	}
 }
 
-// generateRoomID creates a short random room ID (e.g. "abc-def-ghi").
 func generateRoomID() string {
-	b := make([]byte, 5)
+	b := make([]byte, 16)
 	rand.Read(b)
-	h := hex.EncodeToString(b)
-	return fmt.Sprintf("%s-%s-%s", h[0:3], h[3:6], h[6:9])
+	return hex.EncodeToString(b)
 }
 
 // CreateRoom generates a room code.

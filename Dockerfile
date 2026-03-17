@@ -6,7 +6,7 @@ COPY *.go ./
 RUN CGO_ENABLED=0 go build -o server .
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates ffmpeg
+RUN apk update && apk upgrade --no-cache && apk add --no-cache ca-certificates ffmpeg
 COPY --from=build /app/server /server
 COPY static/ /static/
 WORKDIR /
