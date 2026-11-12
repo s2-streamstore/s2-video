@@ -15,7 +15,8 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 1
 
+# Matches the live machines (2026-11-12); a smaller size here would shrink them on deploy.
 [[vm]]
-  memory = '512mb'
-  cpus = 2
-  memory_mb = 512
+  cpu_kind = 'shared'
+  cpus = 8
+  memory_mb = 5120
