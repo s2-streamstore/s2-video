@@ -12,6 +12,5 @@ COPY static/ /static/
 WORKDIR /
 ENV ADDR=:8080
 EXPOSE 8080
-# The server holds an S2 access token; keep it off root.
 USER 65532:65532
 CMD ["/server"]
